@@ -1,0 +1,30 @@
+{"prompt": "What is a mutex?", "label": "easy"}
+{"prompt": "Translate 'see you tomorrow' into French.", "label": "easy"}
+{"prompt": "Fix the typo: 'recieve the pakage'", "label": "easy"}
+{"prompt": "Write a commit message for: bump requests to 2.32.3", "label": "easy"}
+{"prompt": "What's the difference between let and const in JS?", "label": "easy"}
+{"prompt": "Convert 72 Fahrenheit to Celsius.", "label": "easy"}
+{"prompt": "Classify the sentiment: 'the build is broken again'", "label": "easy"}
+{"prompt": "Give me a regex that matches a US zip code.", "label": "easy"}
+{"prompt": "Rename this variable to snake_case: userAccountId", "label": "easy"}
+{"prompt": "Summarize in one sentence: Redis is an in-memory data store used as a cache and message broker.", "label": "easy"}
+{"prompt": "What is the default port for PostgreSQL?", "label": "easy"}
+{"prompt": "Define idempotent.", "label": "easy"}
+{"prompt": "Format this JSON: {\"a\":1,\"b\":[1,2]}", "label": "easy"}
+{"prompt": "How do I say 'thank you' in Japanese?", "label": "easy"}
+{"prompt": "What does HTTP 429 mean?", "label": "easy"}
+{"prompt": "Write a one-liner to count lines in a file with bash.", "label": "easy"}
+{"prompt": "Extract the email from: contact me at jane@example.com", "label": "easy"}
+{"prompt": "Is Python dynamically typed? yes or no", "label": "easy"}
+{"prompt": "What is a Docker volume?", "label": "easy"}
+{"prompt": "Rephrase this more politely: send me the report now.", "label": "easy"}
+{"prompt": "Design a multi-tenant rate limiter for an API gateway handling 500k RPS across 3 regions. Discuss consistency trade-offs, failure modes, and a rollout plan.", "label": "hard"}
+{"prompt": "Here's my Go service:\n```go\nfunc (s *Svc) Handle() { s.mu.Lock(); s.ch <- 1; s.mu.Unlock() }\n```\nand the consumer\n```go\nfunc (s *Svc) Consume() { s.mu.Lock(); <-s.ch; s.mu.Unlock() }\n```\nDebug the deadlock and refactor it.", "label": "hard"}
+{"prompt": "Prove that every comparison-based sorting algorithm requires Omega(n log n) comparisons in the worst case.", "label": "hard"}
+{"prompt": "Analyze the trade-offs between event sourcing and CRUD for a banking ledger, then propose a migration path step by step.", "label": "hard"}
+{"prompt": "Implement a lock-free MPMC queue in Rust and explain why it is linearizable.", "label": "hard"}
+{"prompt": "Compare HNSW and IVF-PQ for a 500M-vector index under a 20ms p99 budget and recommend one with justification.", "label": "hard"}
+{"prompt": "Our Postgres p99 latency doubled after upgrading from 14 to 16. Walk through a root cause investigation: first what metrics to pull, then hypotheses, then experiments.", "label": "hard"}
+{"prompt": "Refactor this 400-line React class component into hooks, preserve behavior, and add tests:\n```jsx\nclass Dashboard extends React.Component { /* ... */ }\n```", "label": "hard"}
+{"prompt": "Derive the closed-form solution for ridge regression and explain why the regularized matrix is always invertible.", "label": "hard"}
+{"prompt": "Plan a zero-downtime migration of a 2TB MySQL database to Aurora, covering:\n1. replication\n2. cutover\n3. rollback\n4. validation\n5. cost", "label": "hard"}
