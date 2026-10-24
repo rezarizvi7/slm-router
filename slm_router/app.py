@@ -10,10 +10,11 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from . import complexity
@@ -24,6 +25,7 @@ from .embeddings import HashingEmbedder, OllamaEmbedder
 from .router import Route, Router
 
 log = logging.getLogger("slm_router")
+CHAT_PAGE = Path(__file__).parent / "static" / "index.html"
 
 
 def build_router(s: Settings) -> Router:
@@ -70,6 +72,11 @@ def create_app(router: Router | None = None) -> FastAPI:
     app = FastAPI(title="slm-router", lifespan=lifespan)
     if router is not None:  # injected (tests); available even without running lifespan
         app.state.router = router
+
+    @app.get("/", response_class=HTMLResponse)
+    async def chat_page():
+        """Minimal chat UI so the router can be tried without any tooling."""
+        return CHAT_PAGE.read_text(encoding="utf-8")
 
     @app.get("/healthz")
     async def healthz():

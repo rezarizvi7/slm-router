@@ -44,3 +44,8 @@ async def test_explain_and_metrics(client):
     await client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "hello"}]})
     m = (await client.get("/metrics")).text
     assert "router_requests_total" in m and "router_complexity_score_bucket" in m
+
+
+async def test_chat_page_served(client):
+    r = await client.get("/")
+    assert r.status_code == 200 and "text/html" in r.headers["content-type"] and "SLM Router" in r.text

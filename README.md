@@ -24,6 +24,100 @@ client ───► │ cache probe ─hit─► return                         
             └─────────────────────────────────────────────────────────────┘
 ```
 
+## Beginner guide: no commands needed
+
+**What this is, in one sentence:** a "front desk" on your computer that sends easy AI
+questions to a free AI running on your own machine and only pays for the big AI (Claude)
+when a question is actually hard. It also remembers answers it has already given.
+
+### Step 1: Install Docker Desktop (one time)
+
+Docker is the free app that runs all the pieces for you.
+
+1. Go to https://www.docker.com/products/docker-desktop and download it for your computer.
+2. Install it like any other app and open it.
+3. Wait until Docker Desktop says it is **running**. You can leave it running in the background.
+
+You need about **8 GB of RAM** and **10 GB of free disk space**.
+
+### Step 2: Get an Anthropic API key (optional)
+
+This lets hard questions go to Claude. It's pay-as-you-go and costs a few cents per hard
+question. **Skip this step if you only want the free local AI.**
+
+1. Go to https://console.anthropic.com and sign up.
+2. Add billing, open **API Keys**, click **Create Key** and copy it. It starts with `sk-ant-`.
+   Keep it private, like a password.
+
+### Step 3: Download this project
+
+1. At the top of this page on GitHub, click the green **Code** button, then **Download ZIP**.
+2. Find the ZIP in your Downloads folder and unzip it (double-click on Mac; on Windows,
+   right-click it and choose **Extract All**).
+
+### Step 4: Double-click Start
+
+Open the unzipped `slm-router` folder.
+
+| Your computer | Double-click |
+|---|---|
+| **Windows** | `Start.bat` |
+| **Mac** | `Start.command` |
+
+A window opens and walks you through it:
+
+- **The first time**, it asks for your API key. Paste it and press **Enter**, or just
+  press **Enter** to skip.
+- **The first start downloads about 1.5 GB** and can take **5–15 minutes**. Later starts take
+  seconds.
+- When it says **Ready!**, your browser opens the chat page automatically.
+
+> **Mac says it "cannot be opened because it is from an unidentified developer"?**
+> Right-click (or Control-click) `Start.command`, choose **Open**, then **Open** again. On
+> newer macOS versions, if there's no **Open** button, go to **System Settings → Privacy &
+> Security**, scroll down, and click **Open Anyway** next to `Start.command`. You only need to
+> do this once.
+>
+> **Windows shows "Windows protected your PC"?** Click **More info**, then **Run anyway**.
+
+### Step 5: Ask questions
+
+The chat page is at **http://localhost:8080**. Type a question and press **Enter**. Under each
+answer you'll see who answered it:
+
+- 🔵 **Local model (free)**: the small AI on your computer
+- 🟠 **Claude**: the big AI. This one costs money.
+- 🟢 **Memory (instant, free)**: an answer it already knew
+
+The **Who answers** menu lets you force one or the other. **New chat** starts over.
+
+The first answer from the local AI can take 20–30 seconds while it wakes up. That's normal.
+
+### Step 6: See the dashboard
+
+Click **Open the dashboard** at the top of the chat page (or go to **http://localhost:3000**)
+and pick **SLM Router**. It shows how many questions each AI answered, how fast it was,
+and how much money was spent and saved.
+
+### Step 7: Stop it
+
+Double-click `Stop.bat` (Windows) or `Stop.command` (Mac). The downloaded AI models are kept,
+so next time starts quickly. To start again, double-click **Start**.
+
+### If something goes wrong
+
+| Problem | Fix |
+|---|---|
+| "Docker is not installed" | Do Step 1, then double-click Start again. |
+| "Docker didn't start" | Open Docker Desktop yourself, wait until it says it's running, then double-click Start again. |
+| The chat page doesn't load | Wait a minute and refresh. The first start can be slow. |
+| Answers always say "Local model" even for hard questions | Your API key is missing or wrong. Open the `.env` file in the folder with a text editor, fix the line `ANTHROPIC_API_KEY=...`, save, then double-click Stop and Start. |
+| You want a spending limit | In `.env`, set `ROUTER_FRONTIER_DAILY_BUDGET_USD=1` for a $1/day cap, then Stop and Start. |
+
+To see a file called `.env`, you may need to show hidden files. On Mac, press
+**Cmd + Shift + .** in Finder. On Windows, open File Explorer → **View** → **Show** →
+**Hidden items**.
+
 ## Quick start
 
 ```bash
@@ -31,7 +125,7 @@ cp .env.example .env            # add ANTHROPIC_API_KEY
 docker compose up -d --build    # ollama, model pulls, redis 8, router, prometheus, grafana
 ```
 
-The first start downloads about 1.3 GB of models. Then:
+The first start downloads about 1.5 GB of models. Then open http://localhost:8080 for a chat page, or:
 
 ```bash
 curl -s localhost:8080/v1/chat/completions -H 'content-type: application/json' \
@@ -121,7 +215,7 @@ entirely on your workload. Nothing here guarantees a particular figure.
 ## Tests
 
 ```bash
-pytest                                                  # 37 tests, no network; Redis test uses a local redis-server if present
+pytest                                                  # 38 tests, no network; Redis test uses a local redis-server if present
 TEST_REDIS_URL=redis://localhost:6379/0 pytest tests/test_cache.py   # exercise the HNSW path on Redis 8
 ```
 

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SLM Router Chat</title>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f7f7f5; --surface: #ffffff; --border: #e2e1dc;
+    --text: #1d1d1b; --muted: #6b6a64; --accent: #2a78d6; --accent-text: #ffffff;
+    --local: #2a78d6; --frontier: #c4531f; --cache: #13845c; --error: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #141413; --surface: #1f1f1d; --border: #34332f;
+      --text: #f0efec; --muted: #a8a79f; --accent: #3987e5; --accent-text: #ffffff;
+      --local: #5598e7; --frontier: #e0703d; --cache: #2fb889; --error: #f2867d;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 230px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 1.25rem; margin: 0; }
+  header a { color: var(--accent); font-size: .9rem; }
+  .intro { color: var(--muted); font-size: .95rem; margin: 6px 0 20px; }
+  .msg { background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+         padding: 12px 14px; margin: 12px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .msg.user { background: transparent; border-style: dashed; }
+  .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px;
+          font-size: .8rem; color: var(--muted); white-space: normal; }
+  .badge { font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1.5px solid currentColor; }
+  .badge.local { color: var(--local); } .badge.frontier { color: var(--frontier); } .badge.cache { color: var(--cache); }
+  .msg.error { color: var(--error); border-color: var(--error); }
+  form { position: fixed; left: 0; right: 0; bottom: 0; background: var(--bg); border-top: 1px solid var(--border); }
+  .bar { max-width: 760px; margin: 0 auto; padding: 12px 16px; display: grid; gap: 8px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .9rem; color: var(--muted); }
+  textarea { width: 100%; min-height: 48px; max-height: 200px; resize: vertical; padding: 10px 12px;
+             border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; }
+  select, button { font: inherit; border-radius: 8px; padding: 6px 12px; border: 1px solid var(--border);
+                   background: var(--surface); color: var(--text); }
+  button.send { background: var(--accent); color: var(--accent-text); border-color: var(--accent); margin-left: auto; }
+  button:disabled { opacity: .6; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>SLM Router</h1>
+    <a href="http://localhost:3000" target="_blank" rel="noopener">Open the dashboard ↗</a>
+  </header>
+  <p class="intro">Type a question. Easy ones are answered for free by the small model on your computer;
+    hard ones go to Claude. Each answer shows who answered it.</p>
+  <div id="log" aria-live="polite"></div>
+</main>
+<form id="f">
+  <div class="bar">
+    <textarea id="q" placeholder="Ask anything… (Enter to send, Shift+Enter for a new line)" required></textarea>
+    <div class="row">
+      <label for="mode">Who answers:</label>
+      <select id="mode">
+        <option value="auto">Let the router decide</option>
+        <option value="local">Always the free local model</option>
+        <option value="frontier">Always Claude</option>
+      </select>
+      <button type="button" id="reset">New chat</button>
+      <button class="send" id="send">Send</button>
+    </div>
+  </div>
+</form>
+<script>
+const TIER_LABEL = { local: "Local model (free)", frontier: "Claude", cache: "Memory (instant, free)" };
+const log = document.getElementById("log"), q = document.getElementById("q"), send = document.getElementById("send");
+let history = [];
+
+function add(cls, text) {
+  const div = document.createElement("div");
+  div.className = "msg " + cls;
+  div.textContent = text;
+  log.appendChild(div);
+  div.scrollIntoView({ behavior: "smooth", block: "end" });
+  return div;
+}
+
+document.getElementById("reset").onclick = () => { history = []; log.innerHTML = ""; q.focus(); };
+q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); document.getElementById("f").requestSubmit(); } });
+
+document.getElementById("f").onsubmit = async e => {
+  e.preventDefault();
+  const text = q.value.trim();
+  if (!text) return;
+  q.value = ""; send.disabled = true;
+  add("user", text);
+  history.push({ role: "user", content: text });
+  const pending = add("", "Thinking…");
+  const t0 = performance.now();
+  try {
+    const r = await fetch("/v1/chat/completions", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ model: document.getElementById("mode").value, messages: history }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `HTTP ${r.status}`);
+    const data = await r.json();
+    const answer = data.choices[0].message.content || "(empty answer)";
+    history.push({ role: "assistant", content: answer });
+    pending.textContent = answer;
+    const tier = r.headers.get("x-router-tier") || "local";
+    const meta = document.createElement("div");
+    meta.className = "meta";
+    const badge = document.createElement("span");
+    badge.className = "badge " + tier;
+    badge.textContent = TIER_LABEL[tier] || tier;
+    const why = r.headers.get("x-router-escalation");
+    meta.append(badge, `${((performance.now() - t0) / 1000).toFixed(1)}s`);
+    if (why) meta.append(` · sent to Claude because: ${why.replaceAll("_", " ")}`);
+    pending.appendChild(meta);
+  } catch (err) {
+    history.pop();
+    pending.className = "msg error";
+    pending.textContent = "Something went wrong: " + err.message;
+  } finally {
+    send.disabled = false; q.focus();
+  }
+};
+q.focus();
+</script>
+</body>
+</html>
