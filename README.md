@@ -24,6 +24,21 @@ client ───► │ cache probe ─hit─► return                         
             └─────────────────────────────────────────────────────────────┘
 ```
 
+## Try it in your browser
+
+**Playground:** https://claude.ai/artifact/XYcogpB64kXv3W4dLw1sn5
+
+Type a question and the router decides who answers. It checks its memory, scores how hard
+the question is, asks the small model "easy or hard?" when it's borderline, and passes the
+question to the big model when the small one isn't sure. Open **How it decided** under any
+answer to see each step.
+
+The playground runs on Claude: the small model is Claude's fastest tier and the big model
+is its most capable tier. It uses the same routing rules as this repo
+(`playground/index.html`, scores identical to `slm_router/complexity.py`). The full version
+below runs the small model **on your own computer** for free. Answers in the playground use
+the viewer's own Claude account, and its memory is kept per browser.
+
 ## Beginner guide: no commands needed
 
 **What this is, in one sentence:** a "front desk" on your computer that sends easy AI

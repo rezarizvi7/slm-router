@@ -1,0 +1,470 @@
+<title>SLM Router</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column; each answer carries its own routing trace like a dispatch slip. */
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --sunken: #eceef2; --line: #dcdfe5;
+  --fg: #16181d; --muted: #5d636f; --faint: #8a909b;
+  --accent: #2a78d6; --on-accent: #ffffff;
+  --small: #2a78d6; --big: #c4531f; --memory: #13845c; --danger: #b3261e;
+  --small-soft: #e3eefb; --big-soft: #fbe9e1; --memory-soft: #def3ea;
+  --font-ui: "Schibsted Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121418; --surface: #1b1e24; --sunken: #23272e; --line: #323740;
+    --fg: #eef0f3; --muted: #a6acb7; --faint: #7c838f;
+    --accent: #3987e5; --on-accent: #ffffff;
+    --small: #5598e7; --big: #e0703d; --memory: #2fb889; --danger: #f2867d;
+    --small-soft: #1c2a3d; --big-soft: #3a241b; --memory-soft: #17322a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121418; --surface: #1b1e24; --sunken: #23272e; --line: #323740;
+  --fg: #eef0f3; --muted: #a6acb7; --faint: #7c838f;
+  --accent: #3987e5; --on-accent: #ffffff;
+  --small: #5598e7; --big: #e0703d; --memory: #2fb889; --danger: #f2867d;
+  --small-soft: #1c2a3d; --big-soft: #3a241b; --memory-soft: #17322a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--font-ui); }
+.wrap { max-width: 820px; margin: 0 auto;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header { padding-block: 28px 8px; display: grid; gap: 14px; }
+.brand { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+h1 { margin: 0; font-size: 1.6rem; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 62ch; }
+.tiers { display: flex; flex-wrap: wrap; gap: 8px; }
+.tier { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600;
+        padding: 3px 10px 3px 8px; border-radius: 999px; }
+.tier::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.tier.small { color: var(--small); background: var(--small-soft); }
+.tier.big { color: var(--big); background: var(--big-soft); }
+.tier.memory { color: var(--memory); background: var(--memory-soft); }
+.tier .cost { font-weight: 500; opacity: .85; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--line);
+         border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stat { background: var(--surface); padding: 10px 12px; min-width: 0; }
+.stat b { display: block; font: 600 1.15rem/1.2 var(--font-data); font-variant-numeric: tabular-nums; }
+.stat span { font-size: .75rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+@media (max-width: 520px) { .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+#log { display: grid; gap: 18px; padding-block: 18px 24px; }
+.turn { display: grid; gap: 8px; min-width: 0; }
+.q { justify-self: end; max-width: 85%; background: var(--sunken); border-radius: 14px 14px 4px 14px;
+     padding: 9px 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.a { background: var(--surface); border: 1px solid var(--line); border-radius: 4px 14px 14px 14px; padding: 12px 14px;
+     min-width: 0; }
+.a .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.a .body.pending { color: var(--faint); }
+.a.err .body { color: var(--danger); }
+.answered { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; font-size: .82rem; color: var(--muted); }
+.example-tag { font: 500 .7rem/1 var(--font-data); text-transform: uppercase; letter-spacing: .08em; color: var(--faint);
+               border: 1px dashed var(--line); border-radius: 4px; padding: 3px 6px; }
+
+details.trace { margin-top: 10px; border-top: 1px dashed var(--line); padding-top: 8px; }
+details.trace summary { cursor: pointer; font-size: .82rem; color: var(--muted); font-weight: 600; list-style: none;
+                        display: inline-flex; align-items: center; gap: 6px; }
+details.trace summary::-webkit-details-marker { display: none; }
+details.trace summary::before { content: "▸"; font-size: .7rem; transition: transform .15s; }
+details.trace[open] summary::before { transform: rotate(90deg); }
+.steps { list-style: none; margin: 10px 0 2px; padding: 0; display: grid; gap: 10px; }
+.step { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; font-size: .88rem; }
+.step .dot { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+             font: 600 .72rem/1 var(--font-data); background: var(--sunken); color: var(--muted); }
+.step .dot.hit { background: var(--memory-soft); color: var(--memory); }
+.step .dot.go-small { background: var(--small-soft); color: var(--small); }
+.step .dot.go-big { background: var(--big-soft); color: var(--big); }
+.step p { margin: 1px 0 0; }
+.step .sub { color: var(--muted); font-size: .82rem; }
+.mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { font-size: .76rem; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); }
+.chip.up { color: var(--big); border-color: currentColor; }
+.chip.down { color: var(--small); border-color: currentColor; }
+
+.meter { position: relative; height: 10px; border-radius: 5px; background: var(--sunken); margin: 8px 0 4px; }
+.meter .band { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--line) 0 3px, transparent 3px 6px); }
+.meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; }
+.meter .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--fg); border-radius: 1px; }
+.scale { display: flex; justify-content: space-between; font: .7rem/1 var(--font-data); color: var(--faint); }
+
+.notice { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 10px 14px;
+          font-size: .88rem; color: var(--muted); }
+.notice[hidden] { display: none !important; }
+.notice strong { color: var(--fg); }
+
+.composer { position: sticky; bottom: 0; background: var(--bg); border-top: 1px solid var(--line);
+            padding-bottom: env(safe-area-inset-bottom, 0px); }
+.composer .wrap { padding-block: 12px; display: grid; gap: 8px; }
+.tries { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.tries::-webkit-scrollbar { display: none; }
+.try { flex: none; font: inherit; font-size: .8rem; color: var(--muted); background: var(--surface);
+       border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.try:hover { color: var(--fg); border-color: var(--faint); }
+textarea { width: 100%; min-height: 50px; max-height: 180px; resize: vertical; padding: 11px 13px; border-radius: 12px;
+           border: 1px solid var(--line); background: var(--surface); color: var(--fg); font: inherit; }
+.controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
+select, button { font: inherit; font-size: .88rem; border-radius: 8px; padding: 6px 12px; border: 1px solid var(--line);
+                 background: var(--surface); color: var(--fg); cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; margin-left: auto; }
+button:disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+</style>
+
+<header class="wrap">
+  <div class="brand">
+    <h1>SLM Router</h1>
+    <div class="tiers" aria-label="Who can answer">
+      <span class="tier memory">Memory <span class="cost">free</span></span>
+      <span class="tier small">Small model <span class="cost">cheap, fast</span></span>
+      <span class="tier big">Big model <span class="cost">best, slower</span></span>
+    </div>
+  </div>
+  <p class="lede">Ask anything. The router first checks whether it has answered something similar before, then rates how hard
+    your question is and sends it to the cheapest model that can handle it. Open “How it decided” under any answer to see why.</p>
+  <div class="stats" aria-live="polite">
+    <div class="stat"><b id="s-total">0</b><span>Questions</span></div>
+    <div class="stat"><b id="s-cheap">–</b><span>Avoided big model</span></div>
+    <div class="stat"><b id="s-small">0</b><span>Small · Memory <span id="s-mem">0</span></span></div>
+    <div class="stat"><b id="s-big">0</b><span>Big model</span></div>
+  </div>
+  <p class="notice" id="unavailable" hidden><strong>Asking is off in this view.</strong> Open this page in Claude while signed in to get
+    answers. You can still type a question: the router will show where it would send it.</p>
+</header>
+
+<main class="wrap"><div id="log"></div></main>
+
+<form class="composer" id="form">
+  <div class="wrap">
+    <div class="tries" id="tries"></div>
+    <label for="q" class="sr" hidden>Your question</label>
+    <textarea id="q" placeholder="Ask a question… (Enter to send, Shift+Enter for a new line)"></textarea>
+    <div class="controls">
+      <label for="mode">Who answers</label>
+      <select id="mode">
+        <option value="auto">Router decides</option>
+        <option value="small">Always small model</option>
+        <option value="big">Always big model</option>
+      </select>
+      <button type="button" id="reset">New chat</button>
+      <button type="button" id="stop" hidden>Stop</button>
+      <button class="primary" id="send" type="submit">Ask</button>
+    </div>
+  </div>
+</form>
+
+<script>
+/* ---------- Routing rules (same logic as slm_router/complexity.py) ---------- */
+const HARD = {
+  multi_step: [/\b(step[- ]by[- ]step|first,? .{0,80}\bthen\b|and then|after that|finally,)/i, 0.9, "several steps"],
+  design:     [/\b(architect\w*|system design|design (a|an|the)|trade-?offs?|scalab\w+)\b/i, 1.1, "design or trade-offs"],
+  reasoning:  [/\b(prove|derive|proof|why does|explain why|reason about|root cause|counterexample)\b/i, 1.0, "needs reasoning about why"],
+  code_heavy: [/\b(refactor|implement|debug|optimi[sz]e|race condition|deadlock|concurren\w+|migrat\w+)\b/i, 0.8, "real coding work"],
+  analysis:   [/\b(analy[sz]e|compare|evaluate|critique|review|assess)\b/i, 0.6, "analysis or comparison"],
+  math:       [/(\\frac|\\sum|\\int|∑|∫|\b(integral|eigen\w*|theorem|lemma|complexity of)\b)/i, 0.9, "math"],
+};
+const EASY = {
+  lookup:    [/^\s*(what is|what's|who is|define|when (was|did)|how do i say)\b/i, -0.9, "simple lookup"],
+  transform: [/\b(translate|rephrase|reword|fix (the )?(typo|grammar|spelling)|format|convert|rename|capitali[sz]e)\b/i, -0.8, "rewording or converting"],
+  short_gen: [/\b(one[- ]liner|commit message|regex|title for|tl;?dr|summari[sz]e (this|in one))\b/i, -0.7, "short write-up"],
+  classify:  [/\b(classify|categori[sz]e|sentiment|yes or no|true or false|extract the)\b/i, -0.7, "sorting or extracting"],
+};
+const THRESHOLD = 0.5, BAND = [0.35, 0.65];
+
+function scoreQuestion(text, turns) {
+  const reasons = [];
+  let logit = -0.6;
+  const tokens = Math.max(1, Math.floor(text.length / 4));
+  if (tokens > 50) { logit += 0.45 * Math.log2(tokens / 50); reasons.push({ dir: "up", label: `long question (~${Math.round(tokens * 0.75)} words)` }); }
+  const ctx = turns.reduce((n, t) => n + t.content.length, 0) / 4;
+  if (ctx > 6000) { logit += 1.0; reasons.push({ dir: "up", label: "long conversation" }); }
+  for (const [, [re, w, label]] of Object.entries(HARD)) if (re.test(text)) { logit += w; reasons.push({ dir: "up", label }); }
+  for (const [, [re, w, label]] of Object.entries(EASY)) if (re.test(text)) { logit += w; reasons.push({ dir: "down", label }); }
+  const steps = (text.match(/^\s*(\d+[.)]|[-*])\s+\S/gm) || []).length;
+  if (steps >= 3) { logit += 0.25 * Math.min(steps, 8); reasons.push({ dir: "up", label: `${steps} listed items` }); }
+  const qs = (text.match(/\?/g) || []).length;
+  if (qs >= 3) { logit += 0.5; reasons.push({ dir: "up", label: `${qs} questions in one` }); }
+  const fences = Math.floor((text.match(/```/g) || []).length / 2);
+  if (fences) { logit += 0.4 * Math.min(fences, 3); reasons.push({ dir: "up", label: `${fences} code block${fences > 1 ? "s" : ""}` }); }
+  return { score: 1 / (1 + Math.exp(-logit)), reasons };
+}
+
+const WEAK = /\b(I('m| am) not (sure|certain)|I (don't|do not) know|I can(not|'t) (help|answer|determine)|I('m| am) unable to|beyond my (capabilities|knowledge))\b/i;
+
+/* ---------- Memory: per-browser semantic cache (hashed word n-grams, cosine) ---------- */
+const DIM = 256, MAX_DIST = 0.12, MEM_KEY = "slm-router-memory-v1", MEM_TTL = 24 * 3600e3, MEM_MAX = 150;
+function hash32(s, seed) {
+  let h = seed ^ s.length;
+  for (let i = 0; i < s.length; i++) { h = Math.imul(h ^ s.charCodeAt(i), 2654435761); h ^= h >>> 15; }
+  return h >>> 0;
+}
+function embed(text) {
+  const toks = text.toLowerCase().match(/[a-z0-9]+/g) || [];
+  const feats = toks.concat(toks.slice(1).map((t, i) => toks[i] + "_" + t));
+  const v = new Float32Array(DIM);
+  for (const f of feats) v[hash32(f, 7) % DIM] += (hash32(f, 99) & 1) ? 1 : -1;
+  let n = 0; for (const x of v) n += x * x; n = Math.sqrt(n) || 1;
+  return Array.from(v, x => +(x / n).toFixed(4));
+}
+const memory = {
+  load() { try { const all = JSON.parse(localStorage.getItem(MEM_KEY) || "[]"); return all.filter(e => Date.now() - e.t < MEM_TTL); } catch { return []; } },
+  save(list) { try { localStorage.setItem(MEM_KEY, JSON.stringify(list.slice(-MEM_MAX))); } catch {} },
+  lookup(vec) {
+    const list = this.load();
+    let best = null;
+    for (const e of list) {
+      let dot = 0; for (let i = 0; i < DIM; i++) dot += e.v[i] * vec[i];
+      const d = 1 - dot;
+      if (!best || d < best.d) best = { d, e };
+    }
+    return { size: list.length, best };
+  },
+  store(vec, q, answer, tier) { const list = this.load(); list.push({ v: vec, q, a: answer, tier, t: Date.now() }); this.save(list); },
+};
+
+/* ---------- Session stats (per browser, convenience only) ---------- */
+const STATS_KEY = "slm-router-stats-v1";
+let stats = (() => { try { return JSON.parse(localStorage.getItem(STATS_KEY)) || null; } catch { return null; } })() || { small: 0, big: 0, memory: 0 };
+function renderStats() {
+  const total = stats.small + stats.big + stats.memory;
+  document.getElementById("s-total").textContent = total;
+  document.getElementById("s-small").textContent = stats.small;
+  document.getElementById("s-mem").textContent = stats.memory;
+  document.getElementById("s-big").textContent = stats.big;
+  document.getElementById("s-cheap").textContent = total ? Math.round(100 * (stats.small + stats.memory) / total) + "%" : "–";
+}
+function bump(tier) { stats[tier]++; try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch {} renderStats(); }
+
+/* ---------- Claude ---------- */
+let sample = null, sampleReady = false;
+(async () => {
+  try { sample = window.claude ? await window.claude.use("sample") : null; } catch { sample = null; }
+  sampleReady = true;
+  document.getElementById("unavailable").hidden = !!sample;
+})();
+setTimeout(() => { if (!sampleReady) document.getElementById("unavailable").hidden = false; }, 11000);
+
+const TIER = { small: "quick", big: "complex" };
+const SMALL_RULES = "Answer the user's questions helpfully and concisely. If you are not confident you can answer correctly, begin your reply with: I'm not sure.";
+const ERR = {
+  not_granted: "Asking Claude isn't allowed for this page. You can allow it from the page's permissions.",
+  sampling_disabled: "Claude isn't available on this account.",
+  rate_limited: "Too many questions at once, or a usage limit was reached. Wait a moment and try again.",
+  session_expired: "You've been signed out. Sign in again and retry.",
+  refused: "Claude declined this question. Try asking it differently.",
+  empty_completion: "The model returned nothing. Try rephrasing.",
+};
+const errText = e => ERR[e?.code] || "The answer was interrupted. Try again.";
+
+async function ask(tier, turns, onText, signal) {
+  const input = tier === "small" ? [{ role: "user", content: SMALL_RULES }, ...turns] : turns;
+  const r = await sample(input, { modelTier: TIER[tier], cache: false, onText, signal });
+  return r.text;
+}
+async function judge(text, signal) {
+  const prompt = "You triage requests for an AI system. Decide if this request can be answered well by a small, fast model "
+    + "(short facts, rewording, simple snippets, formatting, classification) or needs a large expert model "
+    + "(multi-step reasoning, non-trivial code, design, math, long analysis). Reply with exactly one word: EASY or HARD.\n\nRequest:\n"
+    + text.slice(0, 2000);
+  const r = await sample(prompt, { modelTier: "quick", signal });
+  const t = r.text.toUpperCase();
+  return t.includes("HARD") ? "HARD" : t.includes("EASY") ? "EASY" : "UNSURE";
+}
+
+/* ---------- UI ---------- */
+const log = document.getElementById("log"), q = document.getElementById("q");
+const sendBtn = document.getElementById("send"), stopBtn = document.getElementById("stop");
+let turns = [], ctl = null;
+
+const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+const TIER_NAME = { small: "Small model", big: "Big model", memory: "Memory" };
+
+function badge(tier) { return el("span", "tier " + tier, TIER_NAME[tier]); }
+
+function meter(score) {
+  const m = el("div", "meter");
+  const band = el("div", "band"); band.style.left = BAND[0] * 100 + "%"; band.style.width = (BAND[1] - BAND[0]) * 100 + "%";
+  const fill = el("div", "fill"); fill.style.width = Math.max(2, score * 100) + "%";
+  fill.style.background = score >= THRESHOLD ? "var(--big)" : "var(--small)";
+  const tick = el("div", "tick"); tick.style.left = `calc(${THRESHOLD * 100}% - 1px)`; tick.title = "Threshold 0.50";
+  m.append(band, fill, tick);
+  const scale = el("div", "scale"); scale.append(el("span", "", "easy 0"), el("span", "", "threshold 0.5"), el("span", "", "1 hard"));
+  const wrap = el("div"); wrap.append(m, scale);
+  return wrap;
+}
+
+function step(dotCls, dotText, main, sub, extra) {
+  const li = el("li", "step");
+  li.append(el("span", "dot " + dotCls, dotText));
+  const body = el("div");
+  const p = el("p"); p.append(...[].concat(main)); body.append(p);
+  if (sub) body.append(el("div", "sub", sub));
+  if (extra) body.append(extra);
+  li.append(body);
+  return li;
+}
+
+function newTurn(question, example) {
+  const turn = el("section", "turn");
+  turn.append(el("div", "q", question));
+  const a = el("div", "a");
+  const body = el("div", "body pending", "Routing…");
+  const answered = el("div", "answered");
+  const trace = el("details", "trace"); trace.open = true;
+  trace.append(el("summary", "", "How it decided"));
+  const steps = el("ol", "steps"); trace.append(steps);
+  a.append(body, answered, trace);
+  if (example) answered.append(el("span", "example-tag", "Example"));
+  turn.append(a);
+  log.append(turn);
+  turn.scrollIntoView({ behavior: "smooth", block: "end" });
+  return { turn, a, body, answered, trace, steps };
+}
+
+function finish(ui, tier, secs, note) {
+  ui.answered.prepend(el("span", "", "Answered by"), badge(tier));
+  ui.answered.append(el("span", "mono", secs.toFixed(1) + " s"));
+  if (note) ui.answered.append(el("span", "", note));
+}
+
+async function route(question, mode) {
+  const ui = newTurn(question);
+  const t0 = performance.now();
+  const prior = turns.slice();
+  const all = [...prior, { role: "user", content: question }];
+  ctl = new AbortController();
+  setBusy(true);
+  let n = 1;
+  try {
+    // 1. Memory (only for the first question of a chat, so earlier context can't change the meaning)
+    const vec = embed(question);
+    if (mode === "auto" && prior.length === 0) {
+      const { size, best } = memory.lookup(vec);
+      if (best && best.d <= MAX_DIST) {
+        ui.steps.append(step("hit", n++, "Found a saved answer to a similar question.",
+          `Distance ${best.d.toFixed(3)} (a match needs ${MAX_DIST} or less). Saved question: “${best.e.q.slice(0, 90)}”`));
+        ui.body.classList.remove("pending"); ui.body.textContent = best.e.a;
+        turns = [...all, { role: "assistant", content: best.e.a }];
+        bump("memory"); finish(ui, "memory", (performance.now() - t0) / 1000, "no model was used");
+        ui.trace.open = false;
+        return;
+      }
+      ui.steps.append(step("", n++, "No saved answer is close enough.",
+        size ? `Checked ${size} saved answer${size > 1 ? "s" : ""}; closest was ${best.d.toFixed(3)} away (needs ${MAX_DIST} or less).` : "Nothing saved yet in this browser."));
+    } else if (mode === "auto") {
+      ui.steps.append(step("", n++, "Skipped memory.", "Follow-up questions depend on the conversation, so saved answers aren't reused."));
+    }
+
+    // 2. Difficulty
+    let tier, judged = null;
+    if (mode === "auto") {
+      const { score, reasons } = scoreQuestion(question, prior);
+      const chips = el("div", "chips");
+      for (const r of reasons) chips.append(el("span", "chip " + r.dir, (r.dir === "up" ? "▲ " : "▼ ") + r.label));
+      if (!reasons.length) chips.append(el("span", "chip", "no strong signals"));
+      const extra = el("div"); extra.append(meter(score), chips);
+      ui.steps.append(step("", n++, ["Difficulty score ", el("b", "mono", score.toFixed(2))],
+        score >= THRESHOLD ? "At or above 0.5 counts as hard." : "Below 0.5 counts as easy.", extra));
+      tier = score >= THRESHOLD ? "big" : "small";
+
+      // 3. Borderline → ask the small model
+      if (score >= BAND[0] && score <= BAND[1] && sample) {
+        const li = step("", n++, "Borderline, so the small model was asked: easy or hard?", "Asking…");
+        ui.steps.append(li);
+        try { judged = await judge(question, ctl.signal); } catch (e) { if (e?.code === "cancelled") throw e; judged = "ERROR"; }
+        li.querySelector(".sub").textContent = judged === "HARD" ? "It said HARD." : judged === "EASY" ? "It said EASY." : "No clear verdict, so the score decides.";
+        if (judged === "HARD") tier = "big"; else if (judged === "EASY") tier = "small";
+      }
+    } else {
+      tier = mode;
+      ui.steps.append(step("", n++, `You chose “${mode === "small" ? "Always small model" : "Always big model"}”.`, "Memory and the difficulty check were skipped."));
+    }
+    ui.steps.append(step("go-" + tier, n++, ["Sent to the ", badge(tier), "."]));
+
+    if (!sample) {
+      ui.body.classList.remove("pending");
+      ui.body.textContent = "Asking is off in this view, so no answer was fetched. Open this page in Claude to get one.";
+      return;
+    }
+
+    // 4. Answer, with escalation if the small model isn't sure
+    ui.body.textContent = tier === "big" ? "Thinking… (the big model can take up to a minute)" : "Thinking…";
+    const show = ({ text }) => { ui.body.classList.remove("pending"); ui.body.textContent = text; };
+    let text = await ask(tier, all, show, ctl.signal);
+    let note = null;
+    if (tier === "small" && mode === "auto" && WEAK.test(text.slice(0, 400))) {
+      ui.steps.append(step("go-big", n++, ["The small model wasn't sure, so the question was passed to the ", badge("big"), "."],
+        `Its reply began: “${text.slice(0, 80).trim()}…”`));
+      ui.body.classList.add("pending"); ui.body.textContent = "Passing to the big model…";
+      tier = "big"; note = "after the small model wasn't sure";
+      text = await ask("big", all, show, ctl.signal);
+    }
+    turns = [...all, { role: "assistant", content: text }];
+    if (mode === "auto" && prior.length === 0) memory.store(vec, question, text, tier);
+    bump(tier);
+    finish(ui, tier, (performance.now() - t0) / 1000, note);
+    ui.trace.open = false;
+  } catch (e) {
+    ui.a.classList.add("err");
+    ui.body.classList.remove("pending");
+    if (e?.code === "cancelled") { ui.body.textContent = e.text ? e.text + "\n\n(stopped)" : "Stopped."; ui.a.classList.remove("err"); }
+    else ui.body.textContent = (e?.text ? e.text + "\n\n" : "") + errText(e);
+  } finally {
+    setBusy(false); ctl = null;
+  }
+}
+
+function setBusy(b) { sendBtn.disabled = b; stopBtn.hidden = !b; q.disabled = b; if (!b) q.focus(); }
+
+/* ---------- Example shown before the first question (marked as example) ---------- */
+function showExample() {
+  const ui = newTurn("What is a mutex?", true);
+  ui.body.classList.remove("pending");
+  ui.body.textContent = "A mutex (mutual exclusion lock) lets only one thread use a shared resource at a time. A thread locks it before touching the resource and unlocks it afterwards; any other thread that tries to lock it waits.";
+  const { score, reasons } = scoreQuestion("What is a mutex?", []);
+  const chips = el("div", "chips");
+  for (const r of reasons) chips.append(el("span", "chip " + r.dir, (r.dir === "up" ? "▲ " : "▼ ") + r.label));
+  const extra = el("div"); extra.append(meter(score), chips);
+  ui.steps.append(
+    step("", 1, "No saved answer is close enough.", "Nothing saved yet in this browser."),
+    step("", 2, ["Difficulty score ", el("b", "mono", score.toFixed(2))], "Below 0.5 counts as easy.", extra),
+    step("go-small", 3, ["Sent to the ", badge("small"), "."]),
+  );
+  ui.answered.append(el("span", "", "Answered by"), badge("small"));
+  ui.turn.dataset.example = "1";
+}
+
+/* ---------- Wiring ---------- */
+const TRIES = ["Translate “see you tomorrow” into French", "Explain how TCP congestion control works",
+  "Design a URL shortener for 100M users and explain the trade-offs", "Write a regex for a US zip code",
+  "Prove that the square root of 2 is irrational"];
+const tries = document.getElementById("tries");
+for (const t of TRIES) { const b = el("button", "try", t); b.type = "button"; b.onclick = () => { q.value = t; submit(); }; tries.append(b); }
+
+function submit() {
+  const text = q.value.trim();
+  if (!text || sendBtn.disabled) return;
+  log.querySelectorAll('[data-example="1"]').forEach(n => n.remove());
+  q.value = "";
+  route(text, document.getElementById("mode").value);
+}
+document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); submit(); });
+q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); } });
+stopBtn.onclick = () => ctl?.abort();
+document.getElementById("reset").onclick = () => { ctl?.abort(); turns = []; log.innerHTML = ""; q.focus(); };
+
+renderStats();
+showExample();
+</script>
